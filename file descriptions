@@ -1,0 +1,9 @@
+What each file is: 
+**Experiment:** doing FBA on the ecoli model to compare the growth rates for anaerobic and aerobic conditions (also created metabolic maps and heatmaps). 
+link to tutorial I used: https://opencobra.github.io/cobratoolbox/stable/tutorials/tutorialFBA.html
+**EcoliAssignment:** This code is for single reaction and gene deletion on the ecoli model and making heatmaps also compares anaerobic and aerobic conditions
+**reaTutorial:** This is the reaction essentiality analysis across multiple models that I did using ATP synthase as the objective function.
+Link to the tutorial I used: https://opencobra.github.io/cobratoolbox/stable/tutorials/tutorialEssentialRxns4MultipleModels.html
+**EcoliAssignmentPt2:** Doing a flux variabilty analysis on the ecoli model and made a heatmap to compare min and max values.
+**ATPecoli:** Uses ATPS4r (ATP synthase) as the objective function for single reaction and gene deletion on the ecoli model and making heatmaps also compares anaerobic and aerobic conditions
+
