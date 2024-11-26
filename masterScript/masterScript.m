@@ -131,6 +131,7 @@ for i = 1:length(all_reactions)
         NF2flux_aligned(i) = NF2flux(rxnIndexNF2);
     end
 end
+
 %% ranking flux differences
 % uses rankFluxes function & createMasterTable
 
