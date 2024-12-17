@@ -1,5 +1,5 @@
 %% load data to create models
-
+load('exprData.mat');
 %creating CAF1 data table
 CAF1_data.genes = exprData.genes(:,1);
 CAF1_data.tissue = exprData.tissues(1,1);
@@ -132,6 +132,24 @@ for i = 1:length(all_reactions)
     end
 end
 
+%% putting data in the right format
+%getting reaction names
+reactionIDs = all_reactions; % reaction IDs of aligned reactions 
+
+% Initialize cell array for storing reaction names
+reactionNames = cell(size(reactionIDs));
+
+% Loop through each reaction ID and get the corresponding reaction name
+for i = 1:length(reactionIDs)
+    % Find the index of the reaction ID in the model
+    reactionIndex = find(strcmp(ihuman.rxns, reactionIDs{i}));
+    
+    % If a match is found, store the corresponding reaction name
+    if ~isempty(reactionIndex)
+        reactionNames{i} = ihuman.rxnNames{reactionIndex};
+    end
+end
+
 %% ranking flux differences
 % uses rankFluxes function & createMasterTable
 
@@ -203,6 +221,7 @@ filename = 'normordered_master_table.xlsx';
 
 writetable(normordered_master_table, filename, 'Sheet', 1, 'WriteRowNames', true);
 
+rxnFormulas = printRxnFormula(ihuman, 'rxnAbbrList', all_reactions, 'printFlag', false, 'lineChangeFlag', true, 'metNameFlag', true);
 
 % adding reaction formula to table
 reactionFormulaMap = containers.Map(all_reactions, rxnFormulas);
@@ -382,13 +401,10 @@ NF1model_k = NF1mediamodel;
 NF2model_k = NF2mediamodel;
 
 % Running singleRxnDeletion for CAF and NF models
-[CAF1_grRatio, CAF1_grRateKO, CAF1_grRateWT, CAF1_hasEffect, CAF1_delRxn,CAF1fluxSolution] = singleRxnDeletion(CAF1model_k,'FBA' ,combinedReactions);
+[allCAF1_grRatio, allCAF1_grRateKO, allCAF1_grRateWT, allCAF1_hasEffect, allCAF1_delRxn,allCAF1fluxSolution] = singleRxnDeletion(CAF1model_k,'FBA' ,CAF1model_k.rxns);
 
-[CAF2_grRatio, CAF2_grRateKO, CAF2_grRateWT, CAF2_hasEffect, CAF2_delRxn,CAF2fluxSolution] = singleRxnDeletion(CAF2model_k, 'FBA', combinedReactions);
+[allCAF2_grRatio, allCAF2_grRateKO, allCAF2_grRateWT, allCAF2_hasEffect, allCAF2_delRxn,allCAF2fluxSolution] = singleRxnDeletion(CAF2model_k, 'FBA', CAF2model_k.rxns);
 
-[NF1_grRatio, NF1_grRateKO, NF1_grRateWT, NF1_hasEffect, NF1_delRxn,NF1fluxSolution] = singleRxnDeletion(NF1model_k, 'FBA', combinedReactions);
+[allNF1_grRatio, allNF1_grRateKO, allNF1_grRateWT, allNF1_hasEffect, allNF1_delRxn,allNF1fluxSolution] = singleRxnDeletion(NF1model_k, 'FBA', NF1model_k.rxns);
 
-[NF2_grRatio, NF2_grRateKO, NF2_grRateWT, NF2_hasEffect, NF2_delRxn,NF2fluxSolution] = singleRxnDeletion(NF2model_k, 'FBA', combinedReactions);
-
-
-
+[allNF2_grRatio, allNF2_grRateKO, allNF2_grRateWT, allNF2_hasEffect, allNF2_delRxn,allNF2fluxSolution] = singleRxnDeletion(NF2model_k, 'FBA', NF2model_k,rxns);
