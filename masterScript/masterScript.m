@@ -407,4 +407,99 @@ NF2model_k = NF2mediamodel;
 
 [allNF1_grRatio, allNF1_grRateKO, allNF1_grRateWT, allNF1_hasEffect, allNF1_delRxn,allNF1fluxSolution] = singleRxnDeletion(NF1model_k, 'FBA', NF1model_k.rxns);
 
-[allNF2_grRatio, allNF2_grRateKO, allNF2_grRateWT, allNF2_hasEffect, allNF2_delRxn,allNF2fluxSolution] = singleRxnDeletion(NF2model_k, 'FBA', NF2model_k,rxns);
+[allNF2_grRatio, allNF2_grRateKO, allNF2_grRateWT, allNF2_hasEffect, allNF2_delRxn,allNF2fluxSolution] = singleRxnDeletion(NF2model_k, 'FBA', NF2model_k.rxns);
+
+
+
+% find indices for each model
+[~, CAF1_indices] = ismember(CAF1model_k.rxns, ihuman.rxns);
+[~, CAF2_indices] = ismember(CAF2model_k.rxns, ihuman.rxns);
+[~, NF1_indices] = ismember(NF1model_k.rxns, ihuman.rxns);
+[~, NF2_indices] = ismember(NF2model_k.rxns, ihuman.rxns);
+
+
+mappedCAF1fluxSolution = zeros(length(ihuman.rxns), length(ihuman.rxns));
+mappedCAF2fluxSolution = zeros(length(ihuman.rxns), length(ihuman.rxns));
+mappedNF1fluxSolution = zeros(length(ihuman.rxns), length(ihuman.rxns));
+mappedNF2fluxSolution = zeros(length(ihuman.rxns), length(ihuman.rxns));
+
+% map each model's flux solution matrix to the Human-GEM reaction space
+for i = 1:length(CAF1_indices)
+    if CAF1_indices(i) > 0  
+        for j = 1:length(CAF1_indices)
+            if CAF1_indices(j) > 0  
+                mappedCAF1fluxSolution(CAF1_indices(i), CAF1_indices(j)) = allCAF1fluxSolution(i, j);
+            end
+        end
+    end
+end
+
+for i = 1:length(CAF2_indices)
+    if CAF2_indices(i) > 0
+        for j = 1:length(CAF2_indices)
+            if CAF2_indices(j) > 0
+                mappedCAF2fluxSolution(CAF2_indices(i), CAF2_indices(j)) = allCAF2fluxSolution(i, j);
+            end
+        end
+    end
+end
+
+for i = 1:length(NF1_indices)
+    if NF1_indices(i) > 0
+        for j = 1:length(NF1_indices)
+            if NF1_indices(j) > 0
+                mappedNF1fluxSolution(NF1_indices(i), NF1_indices(j)) = allNF1fluxSolution(i, j);
+            end
+        end
+    end
+end
+
+for i = 1:length(NF2_indices)
+    if NF2_indices(i) > 0
+        for j = 1:length(NF2_indices)
+            if NF2_indices(j) > 0
+                mappedNF2fluxSolution(NF2_indices(i), NF2_indices(j)) = allNF2fluxSolution(i, j);
+            end
+        end
+    end
+end
+
+% saving
+save('mappedCAF1fluxSolution.mat', 'mappedCAF1fluxSolution');
+save('mappedCAF2fluxSolution.mat', 'mappedCAF2fluxSolution');
+save('mappedNF1fluxSolution.mat', 'mappedNF1fluxSolution');
+save('mappedNF2fluxSolution.mat', 'mappedNF2fluxSolution');
+
+
+%% checking to see if i did it right
+disp(['Number of non-zero entries in mappedCAF1fluxSolution: ', num2str(nnz(mappedCAF1fluxSolution))]);
+disp(['Number of non-zero entries in allCAF1fluxSolution: ', num2str(nnz(allCAF1fluxSolution))]);
+
+
+%% removing the reactions that have the same flux values
+
+
+threshold = 0.1;  %% set a threshold of 0.1 to include reactions with small differences to get removed
+
+
+sameFluxCAF1_NF1 = abs(mappedCAF1fluxSolution - mappedNF1fluxSolution) <= threshold;
+sameFluxCAF1_NF2 = abs(mappedCAF1fluxSolution - mappedNF2fluxSolution) <= threshold;
+sameFluxCAF2_NF1 = abs(mappedCAF2fluxSolution - mappedNF1fluxSolution) <= threshold;
+sameFluxCAF2_NF2 = abs(mappedCAF2fluxSolution - mappedNF2fluxSolution) <= threshold;
+
+% combine them
+finalRemoveMask = sameFluxCAF1_NF1 | sameFluxCAF1_NF2 | sameFluxCAF2_NF1 | sameFluxCAF2_NF2;
+
+
+% identify indices to keep
+keepIndices = find(~any(finalRemoveMask, 1));
+
+
+% filter the flux solutions
+filteredCAF1fluxSolution = mappedCAF1fluxSolution(keepIndices, keepIndices);
+filteredCAF2fluxSolution = mappedCAF2fluxSolution(keepIndices, keepIndices);
+filteredNF1fluxSolution = mappedNF1fluxSolution(keepIndices, keepIndices);
+filteredNF2fluxSolution = mappedNF2fluxSolution(keepIndices, keepIndices);
+
+% check
+disp(['Filtered CAF1 matrix size: ', num2str(size(filteredCAF1fluxSolution, 1)), ' x ', num2str(size(filteredCAF1fluxSolution, 2))]);
