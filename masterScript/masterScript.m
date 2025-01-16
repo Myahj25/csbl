@@ -1,5 +1,6 @@
 %% load data to create models
 load('exprData.mat');
+load('prepData.mat');
 %creating CAF1 data table
 CAF1_data.genes = exprData.genes(:,1);
 CAF1_data.tissue = exprData.tissues(1,1);
@@ -274,9 +275,7 @@ writetable(normordered_master_table, filename, 'Sheet', 1, 'WriteRowNames', true
 
 reactionToGeneMap = containers.Map(CAF1model.rxns, CAF1model.grRules);
 
-
 specificReactions = normordered_master_table.Reaction; 
-
 
 genesForReactions = cell(length(specificReactions), 1);
 
@@ -289,7 +288,6 @@ for i = 1:length(specificReactions)
         genesForReactions{i} = 'No gene rule available'; 
     end
 end
-
 
 reactionGeneTable = table(specificReactions, genesForReactions, ...
     'VariableNames', {'Reaction', 'GeneRule'});
@@ -327,7 +325,6 @@ normFoldcommon_reactions_24 = intersect(normFoldreactions2, normFoldreactions4);
 normFoldcommon_reactions_34 = intersect(normFoldreactions3, normFoldreactions4);
 
 normFoldcommon_reactions_all = intersect(normFoldreactions1, intersect(normFoldreactions2, intersect(normFoldreactions3, normFoldreactions4)));
-
 
 
 % the reactions both comparisons have in common: comparing Fold vs Difference calculation
@@ -391,7 +388,7 @@ disp(normFoldTable);
 writetable(normFoldTable, 'Common_Reactions_with_FoldChanges.xlsx');
 
 
-%% knocking out significant reactions from fold changes and differences
+%% formatting somethings
 
 combinedReactions = union(normFoldcommon_reactions_all,normcommon_reactions_all); %the reactions from both the fold change analysis and difference calculations
 
@@ -400,7 +397,8 @@ CAF2model_k = CAF2mediamodel;
 NF1model_k = NF1mediamodel;
 NF2model_k = NF2mediamodel;
 
-% Running singleRxnDeletion for CAF and NF models
+
+%% single reaction deletion section 
 [allCAF1_grRatio, allCAF1_grRateKO, allCAF1_grRateWT, allCAF1_hasEffect, allCAF1_delRxn,allCAF1fluxSolution] = singleRxnDeletion(CAF1model_k,'FBA' ,CAF1model_k.rxns);
 
 [allCAF2_grRatio, allCAF2_grRateKO, allCAF2_grRateWT, allCAF2_hasEffect, allCAF2_delRxn,allCAF2fluxSolution] = singleRxnDeletion(CAF2model_k, 'FBA', CAF2model_k.rxns);
@@ -410,30 +408,33 @@ NF2model_k = NF2mediamodel;
 [allNF2_grRatio, allNF2_grRateKO, allNF2_grRateWT, allNF2_hasEffect, allNF2_delRxn,allNF2fluxSolution] = singleRxnDeletion(NF2model_k, 'FBA', NF2model_k.rxns);
 
 
-
-% find indices for each model
+% Find the indices of CAF1model.rxns in ihuman.rxns
+% Find indices for each model
 [~, CAF1_indices] = ismember(CAF1model_k.rxns, ihuman.rxns);
 [~, CAF2_indices] = ismember(CAF2model_k.rxns, ihuman.rxns);
 [~, NF1_indices] = ismember(NF1model_k.rxns, ihuman.rxns);
 [~, NF2_indices] = ismember(NF2model_k.rxns, ihuman.rxns);
 
-
+% Preallocate matrices for the mapped flux solutions
 mappedCAF1fluxSolution = zeros(length(ihuman.rxns), length(ihuman.rxns));
 mappedCAF2fluxSolution = zeros(length(ihuman.rxns), length(ihuman.rxns));
 mappedNF1fluxSolution = zeros(length(ihuman.rxns), length(ihuman.rxns));
 mappedNF2fluxSolution = zeros(length(ihuman.rxns), length(ihuman.rxns));
 
-% map each model's flux solution matrix to the Human-GEM reaction space
+% Map each model's flux solution matrix to the Human-GEM reaction space
+% For CAF1 model
 for i = 1:length(CAF1_indices)
-    if CAF1_indices(i) > 0  
+    if CAF1_indices(i) > 0  % Ensure index is valid
         for j = 1:length(CAF1_indices)
-            if CAF1_indices(j) > 0  
+            if CAF1_indices(j) > 0  % Ensure index is valid
+                % Map the flux values from allCAF1fluxSolution to mappedCAF1fluxSolution
                 mappedCAF1fluxSolution(CAF1_indices(i), CAF1_indices(j)) = allCAF1fluxSolution(i, j);
             end
         end
     end
 end
 
+% Similarly for other models
 for i = 1:length(CAF2_indices)
     if CAF2_indices(i) > 0
         for j = 1:length(CAF2_indices)
@@ -464,42 +465,99 @@ for i = 1:length(NF2_indices)
     end
 end
 
-% saving
+% Save the mapped matrices to files if needed
 save('mappedCAF1fluxSolution.mat', 'mappedCAF1fluxSolution');
 save('mappedCAF2fluxSolution.mat', 'mappedCAF2fluxSolution');
 save('mappedNF1fluxSolution.mat', 'mappedNF1fluxSolution');
 save('mappedNF2fluxSolution.mat', 'mappedNF2fluxSolution');
 
 
-%% checking to see if i did it right
+% checking to see if i did it right
 disp(['Number of non-zero entries in mappedCAF1fluxSolution: ', num2str(nnz(mappedCAF1fluxSolution))]);
-disp(['Number of non-zero entries in allCAF1fluxSolution: ', num2str(nnz(allCAF1fluxSolution))]);
+disp(['Number of non-zero entries in allCAF1fluxSolution: ', num2str(nnz(allCAF1fluxSolution))])
 
 
-%% removing the reactions that have the same flux values
+% Row-wise Filtering on Matrices for all 4 comparisons
 
+% Normalizing all mapped flux solutions
+normmappedCAF1 = mappedCAF1fluxSolution / CAF1modelanalysis.v(growthRxnIndexC1);
+normmappedNF1 = mappedNF1fluxSolution / NF1modelanalysis.v(growthRxnIndexN1);
+normmappedCAF2 = mappedCAF2fluxSolution / CAF2modelanalysis.v(growthRxnIndexC2);
+normmappedNF2 = mappedNF2fluxSolution / NF2modelanalysis.v(growthRxnIndexN2);
 
-threshold = 0.1;  %% set a threshold of 0.1 to include reactions with small differences to get removed
+% Define combinations to compare
+combinations = {...
+    {'CAF1-NF1', normmappedCAF1, normmappedNF1}, ...
+    {'CAF1-NF2', normmappedCAF1, normmappedNF2}, ...
+    {'CAF2-NF1', normmappedCAF2, normmappedNF1}, ...
+    {'CAF2-NF2', normmappedCAF2, normmappedNF2}};
 
+% Set tolerances for comparison
+meanTolerance = 1; 
+varTolerance = 1;
 
-sameFluxCAF1_NF1 = abs(mappedCAF1fluxSolution - mappedNF1fluxSolution) <= threshold;
-sameFluxCAF1_NF2 = abs(mappedCAF1fluxSolution - mappedNF2fluxSolution) <= threshold;
-sameFluxCAF2_NF1 = abs(mappedCAF2fluxSolution - mappedNF1fluxSolution) <= threshold;
-sameFluxCAF2_NF2 = abs(mappedCAF2fluxSolution - mappedNF2fluxSolution) <= threshold;
+% Store originalIndices for each comparison
+allOriginalIndices = cell(length(combinations), 1);
 
-% combine them
-finalRemoveMask = sameFluxCAF1_NF1 | sameFluxCAF1_NF2 | sameFluxCAF2_NF1 | sameFluxCAF2_NF2;
+% Iterate over combinations
+for i = 1:length(combinations)
+    % Extract combination details
+    name = combinations{i}{1};
+    matrix1 = combinations{i}{2};
+    matrix2 = combinations{i}{3};
 
+    % Row-wise statistics
+    rowMeans1 = mean(matrix1, 2);  % means for each row of matrix1
+    rowMeans2 = mean(matrix2, 2);  % means for each row of matrix2
+    rowVars1 = var(matrix1, 0, 2);  % variances for each row of matrix1
+    rowVars2 = var(matrix2, 0, 2);  % variances for each row of matrix2
 
-% identify indices to keep
-keepIndices = find(~any(finalRemoveMask, 1));
+    % Find rows with different means OR different variances
+    differentIndices = (abs(rowMeans1 - rowMeans2) > meanTolerance) | ...
+                      (abs(rowVars1 - rowVars2) > varTolerance);
 
+    % Keep track of original indices
+    originalIndices = find(differentIndices);
+    allOriginalIndices{i} = originalIndices; % Store for intersection
 
-% filter the flux solutions
-filteredCAF1fluxSolution = mappedCAF1fluxSolution(keepIndices, keepIndices);
-filteredCAF2fluxSolution = mappedCAF2fluxSolution(keepIndices, keepIndices);
-filteredNF1fluxSolution = mappedNF1fluxSolution(keepIndices, keepIndices);
-filteredNF2fluxSolution = mappedNF2fluxSolution(keepIndices, keepIndices);
+    % Print summary statistics
+    fprintf('--- Results for %s ---\n', name);
+    fprintf('Original number of rows: %d\n', size(matrix1, 1));
+    fprintf('Number of rows with same statistics: %d\n', sum(~differentIndices));
+    fprintf('Number of rows with different statistics: %d\n', sum(differentIndices));
 
-% check
-disp(['Filtered CAF1 matrix size: ', num2str(size(filteredCAF1fluxSolution, 1)), ' x ', num2str(size(filteredCAF1fluxSolution, 2))]);
+    % Create comparison table for the statistical differences
+    statsTable = table(originalIndices, rowMeans1(differentIndices), ...
+                      rowMeans2(differentIndices), rowVars1(differentIndices), ...
+                      rowVars2(differentIndices), ...
+        'VariableNames', {'OriginalIndex', 'Mean1', 'Mean2', 'Var1', 'Var2'});
+
+    % Save results to file 
+    outputFilename = sprintf('%s_statsTable.xlsx', name);
+    writetable(statsTable, outputFilename);
+
+    % Display that the results were saved
+    fprintf('Statistics table saved to %s\n', outputFilename);
+end
+
+% Find common indices across all comparisons
+commonIndices = allOriginalIndices{1};
+for i = 2:length(allOriginalIndices)
+    commonIndices = intersect(commonIndices, allOriginalIndices{i});
+end
+
+% Print summary of common indices
+fprintf('Number of rows with differences common to all comparisons: %d\n', length(commonIndices));
+
+% Save common indices to a file
+commonTable = table(commonIndices, 'VariableNames', {'CommonIndices'});
+writetable(commonTable, 'commonDifferences.xlsx');
+
+% Display that the results were saved
+disp('Common differences saved to "commonDifferences.xlsx".');
+
+% getting list of the common reactions i found
+commonSRDrxns = ihuman.rxnNames(commonIndices);
+SRDcommonReactionsTable = table(commonSRDrxns, 'VariableNames', {'CommonReactions'});
+outputFilename = 'SRDcommonReactions.xlsx';
+writetable(SRDcommonReactionsTable, outputFilename);
